@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An interactive 3D flight-control bench with live firmware traces.">
+  <meta name="color-scheme" content="dark">
+  <title>Rohawk Flight Lab</title>
+  <script type="module" crossorigin src="./assets/index-Bj1gYar5.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-COXHqCJM.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell top-inner">
+      <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>ROHAWK <b>FLIGHT LAB</b></span></div>
+      <a class="system-link" href="#system">System notes</a>
+      <span class="runtime"><span></span> Firmware in WebAssembly</span>
+    </div>
+  </header>
+  <main class="shell">
+    <section class="intro" aria-labelledby="title">
+      <div>
+        <h1 id="title">Flight control sandbox</h1>
+        <p>Fly the 3D rig and inspect what the firmware does on each control tick.</p>
+      </div>
+      <label class="scenario-label" for="scenario"><span>Scenario</span><select id="scenario"></select></label>
+    </section>
+    <div id="error" class="error" role="alert" hidden></div>
+    <div class="workspace">
+      <section class="panel viewport" aria-labelledby="viewport-title">
+        <div class="panel-heading"><h2 id="viewport-title">Airframe</h2><div class="views" aria-label="Camera view"><button type="button" data-view="orbit" aria-pressed="true">Orbit</button><button type="button" data-view="top" aria-pressed="false">Top</button><button type="button" data-view="front" aria-pressed="false">Front</button></div></div>
+        <div class="stage">
+          <div id="scene" class="scene"></div><div id="markers" class="markers"></div>
+          <div class="scene-label"><span id="flight-state" class="status" role="status">Starting</span><span>Model view</span></div>
+          <span class="orbit-hint">Drag to orbit · Scroll to zoom</span>
+        </div>
+        <div class="attitude">
+          <div style="--axis:var(--pitch)"><span>Pitch <small>nose up</small></span><strong id="pitch">0.0°</strong></div>
+          <div style="--axis:var(--roll)"><span>Roll <small>right side up</small></span><strong id="roll">0.0°</strong></div>
+          <div style="--axis:var(--yaw)"><span>Yaw <small>heading</small></span><strong id="yaw">0.0°</strong></div>
+        </div>
+        <div class="transport">
+          <div class="transport-actions">
+            <button id="play" class="primary" type="button">Play</button>
+            <button id="tick" type="button">Step tick</button>
+            <button id="reset" type="button">Restart</button>
+            <label for="speed" class="sr-only">Playback speed</label><select id="speed"><option value=".25">0.25×</option><option value=".5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
+            <output id="time">0.00 s</output>
+          </div>
+          <label for="timeline" class="sr-only">Replay time</label><input id="timeline" type="range" min="1" max="800" value="1">
+          <p id="scenario-description"></p>
+        </div>
+      </section>
+      <section class="panel trace" aria-labelledby="trace-title">
+        <div class="panel-heading"><div><h2 id="trace-title">Firmware trace</h2><p id="tick-info">10 ms per tick</p></div><button id="phase-step" type="button">Step phase</button></div>
+        <div id="phases" class="phases" role="group" aria-label="Trace phases"></div>
+        <div class="trace-detail"><div class="trace-meta"><strong id="function-name">loop()</strong><span id="phase-status"></span></div><p id="phase-description"></p></div>
+        <div class="trace-tabs" role="group" aria-label="Trace detail"><button type="button" id="code-tab" aria-pressed="true">Source</button><button type="button" id="memory-tab" aria-pressed="false">Memory</button></div>
+        <div class="trace-body">
+          <div id="code-view"><div class="source-label">quad_firmware.ino <span id="source-line"></span></div><pre id="code" tabindex="0" aria-label="Archived firmware source"></pre></div>
+          <div id="memory-view" hidden><p>Captured bytes at this phase. Offsets refer to WebAssembly linear memory.</p><div id="memory" class="memory-list"></div></div>
+        </div>
+        <div class="trace-stats" id="trace-stats"></div>
+      </section>
+      <section class="panel signal" aria-labelledby="plot-title">
+        <div class="panel-heading"><div><h2 id="plot-title">Control response</h2><p>Command, estimate and model state over time</p></div>
+          <label for="axis" class="sr-only">Plot and PID axis</label><select id="axis"><option value="pitch">Pitch</option><option value="roll">Roll</option><option value="yaw">Yaw rate</option></select>
+        </div>
+        <canvas id="plot" role="img" aria-label="Plot of control target, firmware estimate, and simulated attitude versus seconds"></canvas>
+        <div class="legend"><span><i class="legend-set"></i>Target</span><span><i class="legend-est"></i>Firmware estimate</span><span><i class="legend-true"></i>Model state</span></div>
+      </section>
+      <section class="panel actuators" aria-labelledby="motor-title">
+        <div class="panel-heading"><div><h2 id="motor-title">Motor output</h2><p>Observed PWM writes · 0–255</p></div><span class="mono dim" id="write-count"></span></div>
+        <div id="motors" class="motors"></div>
+        <div class="pid-head"><h3 id="pid-title">Pitch PID</h3><span id="pid-status"></span></div>
+        <div id="pid" class="pid"></div>
+      </section>
+    </div>
+    <section id="manual" class="panel manual" aria-labelledby="manual-title" hidden>
+      <div class="panel-heading"><div><h2 id="manual-title">Bench inputs</h2><p>Stick values and faults are applied locally as the simulation advances.</p></div></div>
+      <div id="sticks" class="sticks"></div>
+      <div class="switches"><label><input id="armed" type="checkbox" checked> Arm</label><label><input id="link" type="checkbox" checked> Radio link</label><label><input id="imu" type="checkbox" checked> IMU sample</label><label><input id="corrupt" type="checkbox"> Corrupt frames</label></div>
+    </section>
+    <section id="system" class="system" aria-labelledby="system-title">
+      <h2 id="system-title">How the system closes the loop</h2>
+      <div class="flow"><div><b>2.4 GHz radio</b><span>Sticks, arm, gains and trim</span></div><div><b>LSM6DSOX IMU</b><span>Gravity and angular velocity</span></div><div><b>ATmega128RFA1</b><span>Filter, PID and motor mixer</span></div><div><b>Motor drivers</b><span>Four PWM duties to low-side FETs</span></div></div>
+      <p>The archived flight loop and orientation math are compiled for this bench. A deterministic attitude model supplies synthetic IMU readings. The display’s yaw heading is integrated in the model. Firmware only closes the loop on yaw rate.</p>
+      <p id="build-provenance" class="mono dim"></p>
+    </section>
+  </main>
+  <footer class="shell footer">Rohawk Flight Lab <span>Interactive engineering demonstration</span></footer>
+</body>
+</html>
